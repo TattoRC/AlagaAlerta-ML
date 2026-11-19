@@ -1,20 +1,5 @@
-"""
-Coleta o historico de pontos de alagamento do CGE
-(Centro de Gerenciamento de Emergencias Climaticas da Prefeitura de SP).
-
-O CGE nao tem API. A pagina de alagamentos aceita uma data na URL e mostra
-todos os pontos registrados naquele dia, separados por regiao e subprefeitura:
-https://www.cgesp.org/v3/alagamentos.jsp?dataBusca=DD/MM/AAAA&enviaBusca=Buscar
-
-O script baixa um dia por vez (com pausa entre as requisicoes), guarda o HTML
-em dados/brutos/cge_html/ pra nao precisar baixar de novo e no final gera:
-  - dados/brutos/cge_alagamentos.csv  -> um ponto de alagamento por linha
-  - dados/brutos/cge_dias.csv         -> todos os dias consultados, inclusive
-                                         os que nao tiveram alagamento
-
-Uso:
-    python coleta/coletar_cge.py 2019-01-01 2025-12-31
-"""
+# coleta os alagamentos do site do CGE, um dia por vez (nao tem API)
+# uso: python coleta/coletar_cge.py 2019-01-01 2025-12-31
 import re
 import sys
 import time
@@ -30,17 +15,13 @@ PASTA_ML = Path(__file__).resolve().parents[1]
 PASTA_HTML = PASTA_ML / "dados" / "brutos" / "cge_html"
 ARQ_PONTOS = PASTA_ML / "dados" / "brutos" / "cge_alagamentos.csv"
 ARQ_DIAS = PASTA_ML / "dados" / "brutos" / "cge_dias.csv"
-# O site bloqueia (erro 403) quando recebe muitas consultas seguidas.
-# Na primeira coleta isso aconteceu depois de ~470 paginas com pausa de 0.5 s,
-# entao a pausa ficou maior e, se o bloqueio vier, o script espera alguns minutos.
-PAUSA = 1.5  # segundos entre uma requisicao e outra
-ESPERA_BLOQUEIO = 180  # segundos de espera quando o site responde 403
+PAUSA = 1.5  # com 0.5 o site comecou a dar 403 depois de umas 470 paginas
+ESPERA_BLOQUEIO = 180
 
 RE_HORARIO = re.compile(r"De\s+(\d{1,2}:\d{2})\s+a\s*(\d{1,2}:\d{2})?")
 
 
 def pagina_valida(conteudo):
-    # pagina boa tem a lista de regioes ou a mensagem de "nao ha registros"
     texto = conteudo.decode("utf-8", errors="ignore")
     return "tit-bairros" in texto or "registros de alagamentos para essa data" in texto
 
@@ -56,7 +37,7 @@ def baixar_dia(dia, sessao):
         try:
             r = sessao.get(URL, params=params, timeout=30)
             if r.status_code == 403:
-                print(f"  {dia}: site pediu pausa (403), esperando {ESPERA_BLOQUEIO * tentativa}s", flush=True)
+                print(f"  {dia}: 403, esperando {ESPERA_BLOQUEIO * tentativa}s", flush=True)
                 time.sleep(ESPERA_BLOQUEIO * tentativa)
                 continue
             r.raise_for_status()
@@ -72,13 +53,11 @@ def baixar_dia(dia, sessao):
 
 
 def ler_pontos(arq, dia):
-    """Le o HTML de um dia e devolve a lista de pontos de alagamento."""
     soup = BeautifulSoup(arq.read_bytes(), "html.parser")
     pontos = []
     total_informado = 0
     regiao = subprefeitura = None
 
-    # percorre a pagina na ordem em que aparece: regiao > subprefeitura > pontos
     for tag in soup.find_all(["h1", "td", "div"]):
         classes = tag.get("class") or []
 
@@ -119,6 +98,7 @@ def ler_pontos(arq, dia):
                 "situacao": situacao,
             })
 
+    # confere com o "X pts." que o site mostra em cada subprefeitura
     if total_informado != len(pontos):
         print(f"  aviso {dia}: pagina diz {total_informado} pts, li {len(pontos)}")
     return pontos

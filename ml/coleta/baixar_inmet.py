@@ -1,19 +1,5 @@
-"""
-Baixa os dados horarios das estacoes automaticas do INMET na capital e arredores:
-    A701 - Sao Paulo / Mirante de Santana (zona norte)
-    A771 - Sao Paulo / Interlagos (zona sul)
-    A755 - Barueri (oeste da capital)
-
-O INMET publica um zip por ano com todas as estacoes do Brasil:
-https://portal.inmet.gov.br/uploads/dadoshistoricos/AAAA.zip
-
-Cada zip tem uns 100 MB, mas so precisamos de 3 arquivos dele. O script baixa
-o zip numa pasta temporaria, extrai os CSVs dessas estacoes para
-dados/brutos/inmet/ e apaga o zip.
-
-Uso:
-    python coleta/baixar_inmet.py 2019 2025
-"""
+# baixa os csv das estacoes do INMET de SP: A701 (mirante), A771 (interlagos) e A755 (barueri)
+# uso: python coleta/baixar_inmet.py 2019 2025
 import sys
 import tempfile
 import zipfile
@@ -37,6 +23,7 @@ def baixar_ano(ano):
                 for pedaco in r.iter_content(chunk_size=1 << 20):
                     f.write(pedaco)
 
+        # o zip vem com o brasil inteiro (~100mb), so tiro as 3 estacoes
         with zipfile.ZipFile(arq_zip) as z:
             for nome in z.namelist():
                 arquivo = Path(nome).name
