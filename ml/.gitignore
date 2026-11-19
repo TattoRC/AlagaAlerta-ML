@@ -1,0 +1,6 @@
+# cache das páginas do CGE (dá pra gerar de novo com coleta/coletar_cge.py)
+dados/brutos/cge_html/
+
+.ipynb_checkpoints/
+__pycache__/
+.venv/
